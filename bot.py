@@ -1,26 +1,27 @@
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-import re
 import os
+import re
 import logging
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # Set up logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
+logger = logging.getLogger(__name__)
 
 # Bot Configuration
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
-def handle_sms(update: Update, context: CallbackContext):
+async def handle_sms(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """SMS forward karte hi direct click-to-copy message"""
     try:
         message_text = update.message.text
         
         # Send original message for full copy
-        context.bot.send_message(
+        await context.bot.send_message(
             chat_id=CHAT_ID,
             text=f"`{message_text}`",
             parse_mode='MarkdownV2'
@@ -30,7 +31,7 @@ def handle_sms(update: Update, context: CallbackContext):
         outgoing_match = re.search(r'Outgoing\s*:\s*(\d{10,})', message_text)
         if outgoing_match:
             number = outgoing_match.group(1)
-            context.bot.send_message(
+            await context.bot.send_message(
                 chat_id=CHAT_ID,
                 text=f"`{number}`",
                 parse_mode='MarkdownV2'
@@ -46,19 +47,20 @@ def handle_sms(update: Update, context: CallbackContext):
         
         if token_parts:
             complete_token = ' '.join(token_parts)
-            context.bot.send_message(
+            await context.bot.send_message(
                 chat_id=CHAT_ID,
                 text=f"`{complete_token}`",
                 parse_mode='MarkdownV2'
             )
         
-        update.message.reply_text("✅ SMS processed! Click any text to copy.")
+        await update.message.reply_text("✅ SMS processed! Click any text to copy.")
         
     except Exception as e:
-        update.message.reply_text(f"❌ Error: {str(e)}")
+        logger.error(f"Error: {e}")
+        await update.message.reply_text("❌ Error processing SMS")
 
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text(
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
         "🤖 SMS Copy Bot\n\n"
         "Forward any SMS → Click text to copy instantly!\n\n"
         "✅ Number - Separate copy\n"
@@ -66,34 +68,34 @@ def start(update: Update, context: CallbackContext):
         "✅ Full message - Separate copy"
     )
 
-def setup(update: Update, context: CallbackContext):
+async def setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_chat_id = update.message.chat_id
-    update.message.reply_text(f"✅ Your Chat ID: {user_chat_id}")
+    await update.message.reply_text(f"✅ Your Chat ID: {user_chat_id}")
 
 def main():
     # Validate environment variables
     if not BOT_TOKEN or not CHAT_ID:
-        print("❌ ERROR: BOT_TOKEN or CHAT_ID not set in environment variables")
+        logger.error("❌ BOT_TOKEN or CHAT_ID not set")
         return
     
-    # Create updater
-    updater = Updater(BOT_TOKEN, use_context=True)
-    
-    # Get dispatcher
-    dp = updater.dispatcher
-    
-    # Add handlers
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("setup", setup))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_sms))
-    
-    print("🚀 BOT STARTED ON RENDER!")
-    print(f"✅ Bot Token: {BOT_TOKEN[:10]}...")
-    print(f"✅ Chat ID: {CHAT_ID}")
-    
-    # Start polling
-    updater.start_polling()
-    updater.idle()
+    try:
+        # Create application
+        application = Application.builder().token(BOT_TOKEN).build()
+        
+        # Add handlers
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("setup", setup))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_sms))
+        
+        logger.info("🚀 BOT STARTED ON RENDER!")
+        logger.info(f"✅ Bot Token: {BOT_TOKEN[:10]}...")
+        logger.info(f"✅ Chat ID: {CHAT_ID}")
+        
+        # Start polling
+        application.run_polling()
+        
+    except Exception as e:
+        logger.error(f"Bot startup failed: {e}")
 
 if __name__ == "__main__":
     main()
