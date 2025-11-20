@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: telegram-sms-bot
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: BOT_TOKEN
+        value: 8478253334:AAE4oLtVqs-Txjfu1sub2mj1q2MKyaQPeWs
+      - key: CHAT_ID
+        value: 8184803370
