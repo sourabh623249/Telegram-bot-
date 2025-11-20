@@ -2,22 +2,11 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 import re
 import os
-from flask import Flask
+import asyncio
 
 # Bot Configuration - DIRECT FROM ENVIRONMENT
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
-
-# Flask app for Render
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "🤖 Telegram SMS Forwarder Bot is Running!"
-
-@app.route('/health')
-def health():
-    return "✅ Bot is Healthy"
 
 async def handle_sms(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """SMS forward karte hi direct click-to-copy message"""
@@ -75,7 +64,7 @@ async def setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_chat_id = update.message.chat_id
     await update.message.reply_text(f"✅ Your Chat ID: {user_chat_id}")
 
-def main():
+async def main():
     # Validate environment variables
     if not BOT_TOKEN or not CHAT_ID:
         print("❌ ERROR: BOT_TOKEN or CHAT_ID not set in environment variables")
@@ -94,14 +83,7 @@ def main():
     print(f"✅ Chat ID: {CHAT_ID}")
     
     # Start polling
-    application.run_polling(drop_pending_updates=True)
+    await application.run_polling()
 
 if __name__ == "__main__":
-    # Start Flask app for Render health checks
-    from threading import Thread
-    flask_thread = Thread(target=lambda: app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False))
-    flask_thread.daemon = True
-    flask_thread.start()
-    
-    # Start Telegram bot
-    main()
+    asyncio.run(main())
